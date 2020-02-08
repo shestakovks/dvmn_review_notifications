@@ -1,5 +1,6 @@
 import logging
 import os
+import time
 
 import requests
 import telegram
@@ -64,6 +65,8 @@ def poll_for_new_reviews(dvmn_api_token, bot, chat_id, timeout):
             logger.warning("Timeout error occurred.")
         except requests.exceptions.ConnectionError:
             logger.warning("Network error occurred.")
+            logger.info(f"Next request will be sent in {timeout} second(s).")
+            time.sleep(timeout)
         except requests.exceptions.HTTPError as err:
             logger.error(f"HTTP Error occurred: {err}.")
             break
