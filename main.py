@@ -36,7 +36,7 @@ def send_bot_message(bot, chat_id, answer):
         logger.info("Sent message to user.")
 
 
-def long_polling_dvmn(dvmn_api_token, bot, chat_id, timeout):
+def poll_for_new_reviews(dvmn_api_token, bot, chat_id, timeout):
     headers = {
         "Authorization": f"Token {dvmn_api_token}"
     }
@@ -82,7 +82,7 @@ def main():
     dvmn_api_token = os.getenv("DVMN_API_TOKEN")
     timeout = int(os.getenv("DVMN_LONG_POLLING_TIMEOUT", DEFAULT_LONG_POLLING_TIMEOUT))
     chat_id = os.getenv("TELEGRAM_CHAT_ID")
-    long_polling_dvmn(dvmn_api_token, bot, chat_id, timeout)
+    poll_for_new_reviews(dvmn_api_token, bot, chat_id, timeout)
 
 
 if __name__ == '__main__':
