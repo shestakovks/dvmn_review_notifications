@@ -5,13 +5,7 @@ import requests
 import telegram
 from dotenv import load_dotenv
 
-formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger("LongPollingApp")
-logger.setLevel(logging.DEBUG)
-fh = logging.FileHandler("debug.log")
-fh.setLevel(logging.DEBUG)
-fh.setFormatter(formatter)
-logger.addHandler(fh)
 
 DVMN_BASE_URL = "https://dvmn.org"
 LONG_POLLING_URL = "https://dvmn.org/api/long_polling/"
@@ -24,7 +18,7 @@ def setup_telegram_bot(telegram_token, proxy_url=None):
         bot = telegram.Bot(token=telegram_token, request=proxy_settings)
     else:
         bot = telegram.Bot(token=telegram_token)
-    logger.debug("Bot setup complete.")
+    logger.info("Bot setup complete.")
     return bot
 
 
@@ -39,7 +33,7 @@ def send_bot_message(bot, chat_id, answer):
         else:
             message += "Преподавателю все понравилось, можно приступать к следующему уроку!"
         bot.send_message(chat_id=chat_id, text=message)
-        logger.debug(f"Sent message to user.")
+        logger.info("Sent message to user.")
 
 
 def long_polling_dvmn(dvmn_api_token, bot, chat_id, timeout):
@@ -66,12 +60,20 @@ def long_polling_dvmn(dvmn_api_token, bot, chat_id, timeout):
             else:
                 params = None
         except requests.exceptions.ReadTimeout:
-            logger.debug("Timeout error occurred.")
+            logger.warning("Timeout error occurred.")
         except requests.exceptions.ConnectionError:
-            logger.debug("Network error occurred.")
+            logger.warning("Network error occurred.")
 
 
 def main():
+    # Setup logger
+    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    logger.setLevel(logging.DEBUG)
+    fh = logging.FileHandler("debug.log")
+    fh.setLevel(logging.DEBUG)
+    fh.setFormatter(formatter)
+    logger.addHandler(fh)
+
     load_dotenv()
     telegram_token = os.getenv("TELEGRAM_BOT_TOKEN")
     proxy_url = os.getenv("TELEGRAM_PROXY_URL", None)
