@@ -46,6 +46,7 @@ def poll_for_new_reviews(dvmn_api_token, bot, chat_id, timeout):
             logger.debug(f"Sending GET request with following parameters: "
                          f"params={params}, timeout={timeout}")
             response = requests.get(LONG_POLLING_URL, params=params, headers=headers, timeout=timeout)
+            response.raise_for_status()
             answer = response.json()
             logger.debug(f"Got following answer: {answer}")
             if answer.get("status") == "found":
@@ -63,6 +64,9 @@ def poll_for_new_reviews(dvmn_api_token, bot, chat_id, timeout):
             logger.warning("Timeout error occurred.")
         except requests.exceptions.ConnectionError:
             logger.warning("Network error occurred.")
+        except requests.exceptions.HTTPError as err:
+            logger.error(f"HTTP Error occurred: {err}.")
+            break
 
 
 def main():
@@ -83,6 +87,7 @@ def main():
     timeout = int(os.getenv("DVMN_LONG_POLLING_TIMEOUT", DEFAULT_LONG_POLLING_TIMEOUT))
     chat_id = os.getenv("TELEGRAM_CHAT_ID")
     poll_for_new_reviews(dvmn_api_token, bot, chat_id, timeout)
+    logger.info("Finishing execution.")
 
 
 if __name__ == '__main__':
