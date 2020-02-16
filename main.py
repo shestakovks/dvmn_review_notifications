@@ -1,17 +1,12 @@
 import logging
 import os
+import time
 
 import requests
 import telegram
 from dotenv import load_dotenv
 
-formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger("LongPollingApp")
-logger.setLevel(logging.DEBUG)
-fh = logging.FileHandler("debug.log")
-fh.setLevel(logging.DEBUG)
-fh.setFormatter(formatter)
-logger.addHandler(fh)
 
 DVMN_BASE_URL = "https://dvmn.org"
 LONG_POLLING_URL = "https://dvmn.org/api/long_polling/"
@@ -24,7 +19,7 @@ def setup_telegram_bot(telegram_token, proxy_url=None):
         bot = telegram.Bot(token=telegram_token, request=proxy_settings)
     else:
         bot = telegram.Bot(token=telegram_token)
-    logger.debug("Bot setup complete.")
+    logger.info("Bot setup complete.")
     return bot
 
 
@@ -39,10 +34,10 @@ def send_bot_message(bot, chat_id, answer):
         else:
             message += "Преподавателю все понравилось, можно приступать к следующему уроку!"
         bot.send_message(chat_id=chat_id, text=message)
-        logger.debug(f"Sent message to user.")
+        logger.info("Sent message to user.")
 
 
-def long_polling_dvmn(dvmn_api_token, bot, chat_id, timeout):
+def poll_for_new_reviews(dvmn_api_token, bot, chat_id, timeout):
     headers = {
         "Authorization": f"Token {dvmn_api_token}"
     }
@@ -52,6 +47,7 @@ def long_polling_dvmn(dvmn_api_token, bot, chat_id, timeout):
             logger.debug(f"Sending GET request with following parameters: "
                          f"params={params}, timeout={timeout}")
             response = requests.get(LONG_POLLING_URL, params=params, headers=headers, timeout=timeout)
+            response.raise_for_status()
             answer = response.json()
             logger.debug(f"Got following answer: {answer}")
             if answer.get("status") == "found":
@@ -66,12 +62,25 @@ def long_polling_dvmn(dvmn_api_token, bot, chat_id, timeout):
             else:
                 params = None
         except requests.exceptions.ReadTimeout:
-            logger.debug("Timeout error occurred.")
+            logger.warning("Timeout error occurred.")
         except requests.exceptions.ConnectionError:
-            logger.debug("Network error occurred.")
+            logger.warning("Network error occurred.")
+            logger.info(f"Next request will be sent in {timeout} second(s).")
+            time.sleep(timeout)
+        except requests.exceptions.HTTPError as err:
+            logger.error(f"HTTP Error occurred: {err}.")
+            break
 
 
 def main():
+    # Setup logger
+    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    logger.setLevel(logging.DEBUG)
+    fh = logging.FileHandler("debug.log")
+    fh.setLevel(logging.DEBUG)
+    fh.setFormatter(formatter)
+    logger.addHandler(fh)
+
     load_dotenv()
     telegram_token = os.getenv("TELEGRAM_BOT_TOKEN")
     proxy_url = os.getenv("TELEGRAM_PROXY_URL", None)
@@ -80,7 +89,8 @@ def main():
     dvmn_api_token = os.getenv("DVMN_API_TOKEN")
     timeout = int(os.getenv("DVMN_LONG_POLLING_TIMEOUT", DEFAULT_LONG_POLLING_TIMEOUT))
     chat_id = os.getenv("TELEGRAM_CHAT_ID")
-    long_polling_dvmn(dvmn_api_token, bot, chat_id, timeout)
+    poll_for_new_reviews(dvmn_api_token, bot, chat_id, timeout)
+    logger.info("Finishing execution.")
 
 
 if __name__ == '__main__':
