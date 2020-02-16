@@ -30,7 +30,6 @@ def setup_telegram_bot(telegram_token, proxy_url=None):
         bot = telegram.Bot(token=telegram_token, request=proxy_settings)
     else:
         bot = telegram.Bot(token=telegram_token)
-    logging.info('Бот запущен.')
     logger.info("Bot setup complete.")
     return bot
 
@@ -56,7 +55,6 @@ def poll_for_new_reviews(dvmn_api_token, bot, chat_id, timeout):
     params = None
     while True:
         try:
-            a = 5 / 0  # Test exception
             logger.debug(f"Sending GET request with following parameters: "
                          f"params={params}, timeout={timeout}")
             response = requests.get(LONG_POLLING_URL, params=params, headers=headers, timeout=timeout)
@@ -82,12 +80,13 @@ def poll_for_new_reviews(dvmn_api_token, bot, chat_id, timeout):
             time.sleep(timeout)
         except requests.exceptions.HTTPError as err:
             logger.error(f"HTTP Error occurred: {err}.")
-            break
+            raise
 
 
 def main():
+    # Get parameters for our app
     load_dotenv()
-    telegram_notify_bot_token = os.getenv("TELEGRAM_BOT_TOKEN")
+    telegram_notify_bot_token = os.getenv("TELEGRAM_NOTIFY_BOT_TOKEN")
     telegram_log_bot_token = os.getenv("TELEGRAM_LOG_BOT_TOKEN")
     proxy_url = os.getenv("TELEGRAM_PROXY_URL", None)
     dvmn_api_token = os.getenv("DVMN_API_TOKEN")
@@ -103,13 +102,15 @@ def main():
     logger.addHandler(bot_handler)
 
     # Setup bot and start polling
-    try:
-        notification_bot = setup_telegram_bot(telegram_notify_bot_token, proxy_url)
-        poll_for_new_reviews(dvmn_api_token, notification_bot, chat_id, timeout)
-    except Exception as err:
-        logger.error(err, exc_info=True)
-
-    logger.info("Finishing execution.")
+    while True:
+        try:
+            notification_bot = setup_telegram_bot(telegram_notify_bot_token, proxy_url)
+            poll_for_new_reviews(dvmn_api_token, notification_bot, chat_id, timeout)
+        except Exception as err:
+            logger.error("Unexpected error occurred:")
+            logger.error(err, exc_info=True)
+            logger.info(f"Bot will restart in 120 seconds.")
+            time.sleep(120)
 
 
 if __name__ == '__main__':
