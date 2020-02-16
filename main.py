@@ -56,6 +56,7 @@ def poll_for_new_reviews(dvmn_api_token, bot, chat_id, timeout):
     params = None
     while True:
         try:
+            a = 5 / 0  # Test exception
             logger.debug(f"Sending GET request with following parameters: "
                          f"params={params}, timeout={timeout}")
             response = requests.get(LONG_POLLING_URL, params=params, headers=headers, timeout=timeout)
@@ -96,14 +97,17 @@ def main():
     # Setup logger
     formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
     logger.setLevel(logging.DEBUG)
-    bot_handler = BotLogsHandler(level=logging.DEBUG, telegram_token=telegram_log_bot_token,
+    bot_handler = BotLogsHandler(level=logging.INFO, telegram_token=telegram_log_bot_token,
                                  proxy_url=proxy_url, chat_id=chat_id)
     bot_handler.setFormatter(formatter)
     logger.addHandler(bot_handler)
 
     # Setup bot and start polling
-    notification_bot = setup_telegram_bot(telegram_notify_bot_token, proxy_url)
-    poll_for_new_reviews(dvmn_api_token, notification_bot, chat_id, timeout)
+    try:
+        notification_bot = setup_telegram_bot(telegram_notify_bot_token, proxy_url)
+        poll_for_new_reviews(dvmn_api_token, notification_bot, chat_id, timeout)
+    except Exception as err:
+        logger.error(err, exc_info=True)
 
     logger.info("Finishing execution.")
 
