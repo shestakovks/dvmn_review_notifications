@@ -13,6 +13,17 @@ LONG_POLLING_URL = "https://dvmn.org/api/long_polling/"
 DEFAULT_LONG_POLLING_TIMEOUT = 90
 
 
+class BotLogsHandler(logging.Handler):
+    def __init__(self, level=logging.NOTSET, telegram_token=None, proxy_url=None, chat_id=None):
+        self.bot = setup_telegram_bot(telegram_token, proxy_url)
+        self.chat_id = chat_id
+        super(BotLogsHandler, self).__init__(level=level)
+
+    def emit(self, record):
+        log_entry = self.format(record)
+        self.bot.send_message(chat_id=self.chat_id, text=log_entry)
+
+
 def setup_telegram_bot(telegram_token, proxy_url=None):
     if proxy_url is not None:
         proxy_settings = telegram.utils.request.Request(proxy_url=proxy_url)
@@ -74,23 +85,26 @@ def poll_for_new_reviews(dvmn_api_token, bot, chat_id, timeout):
 
 
 def main():
-    # Setup logger
-    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-    logger.setLevel(logging.DEBUG)
-    fh = logging.FileHandler("debug.log")
-    fh.setLevel(logging.DEBUG)
-    fh.setFormatter(formatter)
-    logger.addHandler(fh)
-
     load_dotenv()
-    telegram_token = os.getenv("TELEGRAM_BOT_TOKEN")
+    telegram_notify_bot_token = os.getenv("TELEGRAM_BOT_TOKEN")
+    telegram_log_bot_token = os.getenv("TELEGRAM_LOG_BOT_TOKEN")
     proxy_url = os.getenv("TELEGRAM_PROXY_URL", None)
-    bot = setup_telegram_bot(telegram_token, proxy_url)
-
     dvmn_api_token = os.getenv("DVMN_API_TOKEN")
     timeout = int(os.getenv("DVMN_LONG_POLLING_TIMEOUT", DEFAULT_LONG_POLLING_TIMEOUT))
     chat_id = os.getenv("TELEGRAM_CHAT_ID")
-    poll_for_new_reviews(dvmn_api_token, bot, chat_id, timeout)
+
+    # Setup logger
+    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    logger.setLevel(logging.DEBUG)
+    bot_handler = BotLogsHandler(level=logging.DEBUG, telegram_token=telegram_log_bot_token,
+                                 proxy_url=proxy_url, chat_id=chat_id)
+    bot_handler.setFormatter(formatter)
+    logger.addHandler(bot_handler)
+
+    # Setup bot and start polling
+    notification_bot = setup_telegram_bot(telegram_notify_bot_token, proxy_url)
+    poll_for_new_reviews(dvmn_api_token, notification_bot, chat_id, timeout)
+
     logger.info("Finishing execution.")
 
 
