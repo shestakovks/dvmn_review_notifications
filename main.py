@@ -19,6 +19,7 @@ def setup_telegram_bot(telegram_token, proxy_url=None):
         bot = telegram.Bot(token=telegram_token, request=proxy_settings)
     else:
         bot = telegram.Bot(token=telegram_token)
+    logging.info('Бот запущен.')
     logger.info("Bot setup complete.")
     return bot
 
